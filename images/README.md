@@ -1,1 +1,1 @@
-temp
+Put your image data files in this folder.

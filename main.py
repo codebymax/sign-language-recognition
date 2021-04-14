@@ -43,7 +43,7 @@ def run_hand_pose(fname, net):
     net.setInput(inp_blob)
 
     output = net.forward()
-    print("time taken by network : {:.3f}".format(time.time() - t))
+    # print("time taken by network : {:.3f}".format(time.time() - t))
 
     # Empty list to store the detected keypoints
     points = []
@@ -87,13 +87,15 @@ def run_hand_pose(fname, net):
     # cv2.imwrite('Output-Keypoints.jpg', frame_copy)
     # cv2.imwrite('Output-Skeleton.jpg', frame)
 
-    print("Total time taken : {:.3f}".format(time.time() - t))
+    # print("Total time taken : {:.3f}".format(time.time() - t))
 
     return points
 
 
 # This function outputs a single row of the dataframe
 # It splits a pair of points (x, y) into two columns pointn_x and pointn_y
+# the columns range from point0_x to point21_y
+# the first column is label where the letter is encoded for each row
 def create_row(letter, points):
     label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
              'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
@@ -127,18 +129,35 @@ def build_data():
                'point16_x', 'point16_y', 'point17_x', 'point17_y', 'point18_x', 'point18_y', 'point19_x', 'point19_y',
                'point20_x', 'point20_y', 'point21_x', 'point21_y']
 
-    df = pd.DataFrame(columns=columns)
+    output_df = pd.DataFrame(columns=columns)
 
     start = time.time()
     net = init()
     for letter in categories:
+        print('Processing: ', letter)
         path = 'images/' + letter
         for filename in os.listdir(path):
             row = create_row(letter, run_hand_pose(path + '/' + filename, net))
-            df = df.append(row, ignore_index=True)
-            # print(df)
+            output_df = output_df.append(row, ignore_index=True)
+
+        test_path = 'images/asl-alphabet-test/' + letter
+        for filename in os.listdir(test_path):
+            row = create_row(letter, run_hand_pose(test_path + '/' + filename, net))
+            output_df = output_df.append(row, ignore_index=True)
+
     print("time elapsed : {:.3f}".format(time.time() - start))
-    return df
+    return output_df
+
+
+def format_custom_data(fname, columns):
+    net = init()
+    temp = run_hand_pose(fname, net)
+    temp = create_row('B', temp)
+    temp.pop('label')
+    temp_df = pd.DataFrame(columns=columns)
+    temp_df = temp_df.append(temp, ignore_index=True)
+    out = np.array(temp_df, dtype=int)
+    return out
 
 
 if __name__ == '__main__':
@@ -146,9 +165,8 @@ if __name__ == '__main__':
     # df = build_data()
     # df.to_pickle('dataframe.pickle')
 
-
     # load from pickle file and perform random forest classification
-    df = pd.read_pickle('dataframe.pickle')
+    df = pd.read_pickle('dataframe_old.pickle')
 
     labels = np.array(df['label'])
 
@@ -159,23 +177,21 @@ if __name__ == '__main__':
     data = np.array(df2, dtype=int)
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(data, labels, test_size=0.2, random_state=42)
+        train_test_split(data, labels, test_size=0.15, random_state=42)
 
     y_train = y_train.astype('int')
 
     y_test = y_test.astype('int')
 
-    rf = RandomForestClassifier(n_estimators=10000, random_state=42)
+    rf = RandomForestClassifier(n_estimators=1000, random_state=42)
 
     rf.fit(X_train, y_train)
 
     y_pred = rf.predict(X_test)
 
-    net = init()
-    test = run_hand_pose('test.jpg', net)
-    test = create_row('B', test)
-    df = pd.DataFrame(test[1:])
-    print(df)
-    #test_pred = rf.predict(test)
+    test = format_custom_data('O.jpg', columns)
+    test_pred = rf.predict(test)
 
+    print('Actual: ', 14)
+    print('Predicted: ', test_pred)
     print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
