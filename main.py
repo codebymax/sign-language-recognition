@@ -140,11 +140,6 @@ def build_data():
             row = create_row(letter, run_hand_pose(path + '/' + filename, net))
             output_df = output_df.append(row, ignore_index=True)
 
-        test_path = 'images/asl-alphabet-test/' + letter
-        for filename in os.listdir(test_path):
-            row = create_row(letter, run_hand_pose(test_path + '/' + filename, net))
-            output_df = output_df.append(row, ignore_index=True)
-
     print("time elapsed : {:.3f}".format(time.time() - start))
     return output_df
 
@@ -166,7 +161,7 @@ if __name__ == '__main__':
     # df.to_pickle('dataframe.pickle')
 
     # load from pickle file and perform random forest classification
-    df = pd.read_pickle('dataframe_old.pickle')
+    df = pd.read_pickle('dataframe.pickle')
 
     labels = np.array(df['label'])
 
@@ -189,7 +184,7 @@ if __name__ == '__main__':
 
     y_pred = rf.predict(X_test)
 
-    test = format_custom_data('O.jpg', columns)
+    test = format_custom_data('selfie.jpg', columns)
     test_pred = rf.predict(test)
 
     print('Actual: ', 14)
