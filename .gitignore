@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Models and test data
+*.prototxt
+*.caffemodel
+*.jpg
+
 # Distribution / packaging
 .Python
 build/
