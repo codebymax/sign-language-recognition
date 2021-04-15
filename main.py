@@ -5,10 +5,14 @@ import numpy as np
 import os
 import pandas as pd
 import time
+import random
+import math
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
+
+from xgboost import XGBClassifier
 
 
 # Initialize the hand pose estimator model
@@ -81,14 +85,15 @@ def run_hand_pose(fname, net):
             cv2.circle(frame, points[part_a], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
             cv2.circle(frame, points[part_b], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
 
-    # cv2.imshow('Output-Keypoints', frame_copy)
-    # cv2.imshow('Output-Skeleton', frame)
+    cv2.imshow('Output-Keypoints', frame_copy)
+    cv2.imshow('Output-Skeleton', frame)
 
     # cv2.imwrite('Output-Keypoints.jpg', frame_copy)
     # cv2.imwrite('Output-Skeleton.jpg', frame)
 
     # print("Total time taken : {:.3f}".format(time.time() - t))
 
+    cv2.waitKey(0)
     return points
 
 
@@ -113,6 +118,10 @@ def create_row(letter, points):
             output[column_name + 'x'] = points[i][0]
             output[column_name + 'y'] = points[i][1]
     return output
+
+
+def create_row_2(letter, points):
+    return "sup"
 
 
 # This function builds a dataframe using the keypoints from the images in the dataset here:
@@ -156,6 +165,10 @@ def format_custom_data(fname, columns):
 
 
 if __name__ == '__main__':
+    label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
+             'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
+             'W': 22, 'X': 23, 'Y': 24}
+
     # code to build the dataframe instead of loading from pickle file
     # df = build_data()
     # df.to_pickle('dataframe.pickle')
@@ -171,22 +184,29 @@ if __name__ == '__main__':
 
     data = np.array(df2, dtype=int)
 
+    state = random.randrange(0, 1000)
+    print(state)
+
     X_train, X_test, y_train, y_test = \
-        train_test_split(data, labels, test_size=0.15, random_state=42)
+        train_test_split(data, labels, test_size=0.25, random_state=state)
 
     y_train = y_train.astype('int')
 
     y_test = y_test.astype('int')
 
-    rf = RandomForestClassifier(n_estimators=1000, random_state=42)
+    # rf = RandomForestClassifier(n_estimators=1000, random_state=state)
+    #
+    # rf.fit(X_train, y_train)
+    #
+    # y_pred = rf.predict(X_test)
 
-    rf.fit(X_train, y_train)
+    model = XGBClassifier(use_label_encoder=False)
+    model.fit(X_train, y_train)
 
-    y_pred = rf.predict(X_test)
+    y_pred = model.predict(X_test)
+    test = format_custom_data('test.jpg', columns)
+    test_pred = model.predict(test)
 
-    test = format_custom_data('selfie.jpg', columns)
-    test_pred = rf.predict(test)
-
-    print('Actual: ', 14)
+    print('Actual: ', label['B'])
     print('Predicted: ', test_pred)
     print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
