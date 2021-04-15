@@ -6,13 +6,10 @@ import os
 import pandas as pd
 import time
 import random
-import math
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
-
-from xgboost import XGBClassifier
 
 
 # Initialize the hand pose estimator model
@@ -85,15 +82,15 @@ def run_hand_pose(fname, net):
             cv2.circle(frame, points[part_a], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
             cv2.circle(frame, points[part_b], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
 
-    cv2.imshow('Output-Keypoints', frame_copy)
-    cv2.imshow('Output-Skeleton', frame)
+    # cv2.imshow('Output-Keypoints', frame_copy)
+    # cv2.imshow('Output-Skeleton', frame)
 
     # cv2.imwrite('Output-Keypoints.jpg', frame_copy)
     # cv2.imwrite('Output-Skeleton.jpg', frame)
 
     # print("Total time taken : {:.3f}".format(time.time() - t))
 
-    cv2.waitKey(0)
+    # cv2.waitKey(0)
     return points
 
 
@@ -120,8 +117,46 @@ def create_row(letter, points):
     return output
 
 
+# Given a set of keypoints returns the centroid of those points.
+# Ignores None points
+def get_centroid(points):
+    new_points = []
+    for p in points:
+        if p is None:
+            continue
+        else:
+            new_points.append(p)
+    if not new_points:
+        return (0, 0)  # TODO not sure if this is the right move here (what if there are no recognized points)
+    x = [p[0] for p in new_points]
+    y = [p[1] for p in new_points]
+    centroid = (sum(x) / len(new_points), sum(y) / len(new_points))
+    centroid = [int(num) for num in centroid]
+    return centroid
+
+
+# This is the same as create_row above but makes all points relative to the centroid of the keypoints
+# First we calculate the centroid of all the keypoints using get_centroid.
+# Then the centroid is subtracted from every point before adding to the row
 def create_row_2(letter, points):
-    return "sup"
+    label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
+             'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
+             'W': 22, 'X': 23, 'Y': 24}
+
+    center = get_centroid(points)
+
+    output = {'label': label[letter]}
+
+    for i in range(len(points)):
+        column_name = 'point' + str(i) + '_'
+        if points[i] is None:
+            # TODO what if a point doesn't exist
+            output[column_name + 'x'] = -1
+            output[column_name + 'y'] = -1
+        else:
+            output[column_name + 'x'] = points[i][0] - center[0]
+            output[column_name + 'y'] = points[i][1] - center[1]
+    return output
 
 
 # This function builds a dataframe using the keypoints from the images in the dataset here:
@@ -146,17 +181,19 @@ def build_data():
         print('Processing: ', letter)
         path = 'images/' + letter
         for filename in os.listdir(path):
-            row = create_row(letter, run_hand_pose(path + '/' + filename, net))
+            row = create_row_2(letter, run_hand_pose(path + '/' + filename, net))
             output_df = output_df.append(row, ignore_index=True)
 
     print("time elapsed : {:.3f}".format(time.time() - start))
     return output_df
 
 
+# generate one row of data for testing custom images
+# might expand to multiple rows later once we get more data
 def format_custom_data(fname, columns):
     net = init()
     temp = run_hand_pose(fname, net)
-    temp = create_row('B', temp)
+    temp = create_row_2('B', temp)
     temp.pop('label')
     temp_df = pd.DataFrame(columns=columns)
     temp_df = temp_df.append(temp, ignore_index=True)
@@ -171,10 +208,10 @@ if __name__ == '__main__':
 
     # code to build the dataframe instead of loading from pickle file
     # df = build_data()
-    # df.to_pickle('dataframe.pickle')
+    # df.to_pickle('dataframe_centroid.pickle')
 
     # load from pickle file and perform random forest classification
-    df = pd.read_pickle('dataframe.pickle')
+    df = pd.read_pickle('dataframe_centroid.pickle')
 
     labels = np.array(df['label'])
 
@@ -184,6 +221,8 @@ if __name__ == '__main__':
 
     data = np.array(df2, dtype=int)
 
+    # the best state seems to be 307
+    # I get 89.9% accuracy when 307 is the state
     state = random.randrange(0, 1000)
     print(state)
 
@@ -194,19 +233,15 @@ if __name__ == '__main__':
 
     y_test = y_test.astype('int')
 
-    # rf = RandomForestClassifier(n_estimators=1000, random_state=state)
-    #
-    # rf.fit(X_train, y_train)
-    #
-    # y_pred = rf.predict(X_test)
+    rf = RandomForestClassifier(n_estimators=1000, random_state=state)
 
-    model = XGBClassifier(use_label_encoder=False)
-    model.fit(X_train, y_train)
+    rf.fit(X_train, y_train)
 
-    y_pred = model.predict(X_test)
-    test = format_custom_data('test.jpg', columns)
-    test_pred = model.predict(test)
+    y_pred = rf.predict(X_test)
 
-    print('Actual: ', label['B'])
+    test = format_custom_data('O.jpg', columns)
+    test_pred = rf.predict(test)
+
+    print('Actual: ', label['O'])
     print('Predicted: ', test_pred)
     print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
