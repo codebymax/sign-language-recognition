@@ -17,7 +17,7 @@ if __name__ == '__main__':
         net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
     # generate random forest classifier
-    rf, columns = utils.generate_classifier()
+    rf, columns = utils.generate_classifier('dataframe_centroid_laptop.pickle')
 
     while True:
         start = time.time()

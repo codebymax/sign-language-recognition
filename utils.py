@@ -199,9 +199,9 @@ def format_custom_data(img_data, columns, net):
     return out
 
 
-def generate_classifier():
+def generate_classifier(dfName):
     # load from pickle file and perform random forest classification
-    df = pd.read_pickle('dataframe_centroid.pickle')
+    df = pd.read_pickle(dfName)
     labels = np.array(df['label'])
     df2 = df.drop('label', axis=1)
     columns = list(df2.columns)
