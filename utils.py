@@ -1,23 +1,27 @@
 from __future__ import division
-
+import random
 import cv2
 import numpy as np
 import os
 import pandas as pd
 import time
-import random
-
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn import metrics
+from sklearn.model_selection import train_test_split
+
+label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
+         'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
+         'W': 22, 'X': 23, 'Y': 24}
 
 
 # Initialize the hand pose estimator model
-def init():
+def init_hand_pose():
     proto_file = "hand/pose_deploy.prototxt"
     weights_file = "hand/pose_iter_102000.caffemodel"
 
     net = cv2.dnn.readNetFromCaffe(proto_file, weights_file)
+    if cv2.cuda.getCudaEnabledDeviceCount():
+        net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+        net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
     return net
 
 
@@ -32,14 +36,15 @@ def read_image(fname):
 
 
 # This function run the hand pose estimator on an image and outputs the keypoints
-def run_hand_pose(fname, net):
-    frame, frame_copy, frame_width, frame_height, aspect_ratio = read_image(fname)
+def run_hand_pose(img_data, net):
+    frame, frame_copy, frame_width, frame_height, aspect_ratio = img_data
     n_points = 22
     t = time.time()
     # input image dimensions for the network
     in_height = 368
     in_width = int(((aspect_ratio * in_height) * 8) // 8)
     inp_blob = cv2.dnn.blobFromImage(frame, 1.0 / 255, (in_width, in_height), (0, 0, 0), swapRB=False, crop=False)
+
 
     net.setInput(inp_blob)
 
@@ -73,14 +78,14 @@ def run_hand_pose(fname, net):
                   [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20]]
 
     # Draw Skeleton
-    for pair in pose_pairs:
-        part_a = pair[0]
-        part_b = pair[1]
-
-        if points[part_a] and points[part_b]:
-            cv2.line(frame, points[part_a], points[part_b], (0, 255, 255), 2)
-            cv2.circle(frame, points[part_a], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
-            cv2.circle(frame, points[part_b], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
+    # for pair in pose_pairs:
+    #     part_a = pair[0]
+    #     part_b = pair[1]
+    #
+    #     if points[part_a] and points[part_b]:
+    #         cv2.line(frame, points[part_a], points[part_b], (0, 255, 255), 2)
+    #         cv2.circle(frame, points[part_a], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
+    #         cv2.circle(frame, points[part_b], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
 
     # cv2.imshow('Output-Keypoints', frame_copy)
     # cv2.imshow('Output-Skeleton', frame)
@@ -99,10 +104,6 @@ def run_hand_pose(fname, net):
 # the columns range from point0_x to point21_y
 # the first column is label where the letter is encoded for each row
 def create_row(letter, points):
-    label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
-             'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
-             'W': 22, 'X': 23, 'Y': 24}
-
     output = {'label': label[letter]}
 
     for i in range(len(points)):
@@ -139,10 +140,6 @@ def get_centroid(points):
 # First we calculate the centroid of all the keypoints using get_centroid.
 # Then the centroid is subtracted from every point before adding to the row
 def create_row_2(letter, points):
-    label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
-             'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
-             'W': 22, 'X': 23, 'Y': 24}
-
     center = get_centroid(points)
 
     output = {'label': label[letter]}
@@ -176,12 +173,13 @@ def build_data():
     output_df = pd.DataFrame(columns=columns)
 
     start = time.time()
-    net = init()
+    net = init_hand_pose()
     for letter in categories:
         print('Processing: ', letter)
         path = 'images/' + letter
         for filename in os.listdir(path):
-            row = create_row_2(letter, run_hand_pose(path + '/' + filename, net))
+            im = read_image(path + '/' + filename)
+            row = create_row_2(letter, run_hand_pose(im, net))
             output_df = output_df.append(row, ignore_index=True)
 
     print("time elapsed : {:.3f}".format(time.time() - start))
@@ -190,9 +188,9 @@ def build_data():
 
 # generate one row of data for testing custom images
 # might expand to multiple rows later once we get more data
-def format_custom_data(fname, columns):
-    net = init()
-    temp = run_hand_pose(fname, net)
+def format_custom_data(img_data, columns, net):
+    im = img_data
+    temp = run_hand_pose(im, net)
     temp = create_row_2('B', temp)
     temp.pop('label')
     temp_df = pd.DataFrame(columns=columns)
@@ -201,47 +199,48 @@ def format_custom_data(fname, columns):
     return out
 
 
-if __name__ == '__main__':
-    label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
-             'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
-             'W': 22, 'X': 23, 'Y': 24}
-
-    # code to build the dataframe instead of loading from pickle file
-    # df = build_data()
-    # df.to_pickle('dataframe_centroid.pickle')
-
+def generate_classifier():
     # load from pickle file and perform random forest classification
     df = pd.read_pickle('dataframe_centroid.pickle')
-
     labels = np.array(df['label'])
-
     df2 = df.drop('label', axis=1)
-
     columns = list(df2.columns)
-
     data = np.array(df2, dtype=int)
 
     # the best state seems to be 307
     # I get 89.9% accuracy when 307 is the state
     state = random.randrange(0, 1000)
     print(state)
-
-    X_train, X_test, y_train, y_test = \
+    x_train, x_test, y_train, y_test = \
         train_test_split(data, labels, test_size=0.25, random_state=state)
-
     y_train = y_train.astype('int')
-
-    y_test = y_test.astype('int')
-
     rf = RandomForestClassifier(n_estimators=1000, random_state=state)
+    rf.fit(x_train, y_train)
 
-    rf.fit(X_train, y_train)
+    return rf, columns
 
-    y_pred = rf.predict(X_test)
 
-    test = format_custom_data('O.jpg', columns)
-    test_pred = rf.predict(test)
+def draw_text(frame_in, sign, fps_val):
+    key_list = list(label.keys())
+    values_list = list(label.values())
+    sign = key_list[values_list.index(sign[0])]
+    frame_out = cv2.putText(frame_in, "Detected Sign: " + sign, (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0)
+                            , 2, cv2.LINE_AA, bottomLeftOrigin=False)
+    frame_out = cv2.putText(frame_in, "FPS: " + str(fps_val), (frame_in.shape[1] - 140, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (0, 255, 0), 2, cv2.LINE_AA, bottomLeftOrigin=False)
+    return frame_out
 
-    print('Actual: ', label['O'])
-    print('Predicted: ', test_pred)
-    print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
+
+def process_frame(img, net_in, rf_in, columns_in):
+    test = format_custom_data(img, columns_in, net_in)
+    test_pred = rf_in.predict(test)
+    return test_pred
+
+
+def img_preprocessing(frame_in):
+    frame_copy = np.copy(frame_in)
+    frame_width = frame_in.shape[1]
+    frame_height = frame_in.shape[0]
+    aspect_ratio = frame_width / frame_height
+    frame_out = (frame_in, frame_copy, frame_width, frame_height, aspect_ratio)
+    return frame_out
