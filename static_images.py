@@ -4,9 +4,9 @@ import utils
 if __name__ == '__main__':
     # code to build the dataframe instead of loading from pickle file
     # df = utils.build_data()
-    # df.to_pickle('dataframe_centroid_laptop.pickle')
+    # df.to_pickle('dataframe_centroid_numbers.pickle')
 
-    rf, columns = utils.generate_classifier('dataframe_centroid.pickle')
+    rf, columns = utils.generate_classifier('dataframe_centroid_numbers.pickle')
 
     image = utils.read_image("O.jpg")
     net = utils.init_hand_pose()

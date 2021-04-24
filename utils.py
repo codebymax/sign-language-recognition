@@ -11,7 +11,7 @@ from sklearn import metrics
 
 label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
          'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
-         'W': 22, 'X': 23, 'Y': 24}
+         'W': 22, 'X': 23, 'Y': 24, '0': 25, '1': 26, '2': 27, '3': 28, '4': 29, '5': 30, '6': 31, '7': 32, '8': 33, '9': 34}
 
 
 # Initialize the hand pose estimator model
@@ -163,7 +163,7 @@ def create_row_2(letter, points):
 # outputs dataframe
 def build_data():
     categories = ['nothing', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K',
-                  'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y']
+                  'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
     columns = ['label', 'point0_x', 'point0_y', 'point1_x', 'point1_y', 'point2_x', 'point2_y', 'point3_x', 'point3_y',
                'point4_x', 'point4_y', 'point5_x', 'point5_y', 'point6_x', 'point6_y', 'point7_x', 'point7_y',
@@ -211,7 +211,8 @@ def generate_classifier(dfName):
 
     # the best state seems to be 307
     # I get 89.9% accuracy when 307 is the state
-    state = 307
+    #state = random.randrange(1, 10000)
+    state = 349
     print(state)
     x_train, x_test, y_train, y_test = \
         train_test_split(data, labels, test_size=0.25, random_state=state)
