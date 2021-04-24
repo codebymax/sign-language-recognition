@@ -7,6 +7,7 @@ import pandas as pd
 import time
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn import metrics
 
 label = {'nothing': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'K': 10,
          'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21,
@@ -28,6 +29,8 @@ def init_hand_pose():
 # Used by run_hand_pose to open an image file and get some image data
 def read_image(fname):
     frame = cv2.imread(fname)
+    if frame.shape[0] < 200 and frame.shape[1] < 200:
+        frame = cv2.resize(frame, (200, 200))
     frame_copy = np.copy(frame)
     frame_width = frame.shape[1]
     frame_height = frame.shape[0]
@@ -86,15 +89,15 @@ def run_hand_pose(img_data, net):
     #         cv2.line(frame, points[part_a], points[part_b], (0, 255, 255), 2)
     #         cv2.circle(frame, points[part_a], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
     #         cv2.circle(frame, points[part_b], 4, (0, 0, 255), thickness=-1, lineType=cv2.FILLED)
-
+    #
     # cv2.imshow('Output-Keypoints', frame_copy)
     # cv2.imshow('Output-Skeleton', frame)
-
+    #
     # cv2.imwrite('Output-Keypoints.jpg', frame_copy)
     # cv2.imwrite('Output-Skeleton.jpg', frame)
-
+    #
     # print("Total time taken : {:.3f}".format(time.time() - t))
-
+    #
     # cv2.waitKey(0)
     return points
 
@@ -128,7 +131,7 @@ def get_centroid(points):
         else:
             new_points.append(p)
     if not new_points:
-        return (0, 0)  # TODO not sure if this is the right move here (what if there are no recognized points)
+        return (0, 0)
     x = [p[0] for p in new_points]
     y = [p[1] for p in new_points]
     centroid = (sum(x) / len(new_points), sum(y) / len(new_points))
@@ -147,7 +150,6 @@ def create_row_2(letter, points):
     for i in range(len(points)):
         column_name = 'point' + str(i) + '_'
         if points[i] is None:
-            # TODO what if a point doesn't exist
             output[column_name + 'x'] = -1
             output[column_name + 'y'] = -1
         else:
@@ -209,13 +211,18 @@ def generate_classifier(dfName):
 
     # the best state seems to be 307
     # I get 89.9% accuracy when 307 is the state
-    state = random.randrange(0, 1000)
+    state = 307
     print(state)
     x_train, x_test, y_train, y_test = \
         train_test_split(data, labels, test_size=0.25, random_state=state)
     y_train = y_train.astype('int')
     rf = RandomForestClassifier(n_estimators=1000, random_state=state)
     rf.fit(x_train, y_train)
+
+    y_pred = rf.predict(x_test)
+
+    y_test = y_test.astype(int)
+    print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
 
     return rf, columns
 
