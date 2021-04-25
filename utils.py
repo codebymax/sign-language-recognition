@@ -227,15 +227,16 @@ def generate_classifier(dfName):
     return rf, columns
 
 
-def draw_text(frame_in, sign, fps_val):
+def draw_text(frame_in, sign, fps_val=None):
     key_list = list(label.keys())
     values_list = list(label.values())
     sign = key_list[values_list.index(sign[0])]
     frame_out = cv2.putText(frame_in, "Detected Sign: " + sign, (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0)
                             , 2, cv2.LINE_AA, bottomLeftOrigin=False)
-    frame_out = cv2.putText(frame_in, "FPS: " + str(fps_val), (frame_in.shape[1] - 140, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+    if fps_val is not None:
+        frame_out = cv2.putText(frame_in, "FPS: " + str(fps_val), (frame_in.shape[1] - 140, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
                             (0, 255, 0), 2, cv2.LINE_AA, bottomLeftOrigin=False)
-    return frame_out
+    return frame_out, sign
 
 
 def process_frame(img, net_in, rf_in, columns_in):

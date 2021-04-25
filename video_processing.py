@@ -6,9 +6,13 @@ import time
 
 if __name__ == '__main__':
     # open webcam (change index if your webcam isnt working)
-    cap = cv2.VideoCapture("test_files/test_video.avi")
+    file_path = "images/test_video.mp4"
+    cap = cv2.VideoCapture(file_path)
     if not cap.isOpened():
-        raise IOError("Cannot access webcam")
+        raise IOError("Cannot access video")
+
+    result = cv2.VideoWriter(file_path[:-4] + "_output.avi", cv2.VideoWriter_fourcc('M','J','P','G'), 30,
+                             (int(cap.get(3)), int(cap.get(4))))
 
     # initialize hand pose net and try for CUDA optimization
     net = utils.init_hand_pose()
@@ -17,21 +21,19 @@ if __name__ == '__main__':
         net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
     # generate random forest classifier
-    rf, columns = utils.generate_classifier()
+    rf, columns = utils.generate_classifier('dataframe_centroid.pickle')
 
     while True:
-        start = time.time()
         ret, frame = cap.read()
+
         if not ret:
             break
+
         frame_tuple = utils.img_preprocessing(frame)
         out = utils.process_frame(frame_tuple, net, rf, columns)
-        fps = round((1/(time.time() - start)), 1)
-        frame = utils.draw_text(frame, out, fps)
-        cv2.imshow("win", frame)
-        c = cv2.waitKey(1)
-        if c == 27 or not ret:
-            break
+        frame, sign = utils.draw_text(frame, out)
+        result.write(frame)
 
+    result.release()
     cap.release()
     cv2.destroyAllWindows()
